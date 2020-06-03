@@ -1,0 +1,32 @@
+_BASE_: "Base-RCNN-FPN.yaml"
+MODEL:
+  WEIGHTS: "output_light/last_checkpoint.pth"
+  MASK_ON: True
+  RESNETS:
+    DEPTH: 101
+  META_ARCHITECTURE: "LISARCNN"
+  PROPOSAL_GENERATOR:
+    NAME: "LISARPN"
+  RPN:
+    HEAD_NAME: "LISARPNHead"
+    PRE_NMS_TOPK_TRAIN: 2000  # Per FPN level
+    PRE_NMS_TOPK_TEST: 1000  # Per FPN level
+    # Detectron1 uses 2000 proposals per-batch,
+    # (See "modeling/rpn/rpn_outputs.py" for details of this legacy issue)
+    # which is approximately 1000 proposals per-image since the default batch size for FPN is 2.
+    POST_NMS_TOPK_TRAIN: 2000
+    POST_NMS_TOPK_TEST: 1000
+  ROI_HEADS:
+    NAME: "LISAROIHeads"
+    NUM_CLASSES: 2
+  ROI_BOX_HEAD:
+    SMOOTH_L1_BETA: 0.5
+SOLVER:
+  STEPS: (80000, 100000)
+  MAX_ITER: 150000
+  BASE_LR: 0.001
+  IMS_PER_BATCH: 8
+DATASETS:
+  TRAIN: ("coco_cast_shadow_train_beta_full",)
+  TEST: ("coco_cast_shadow_val_beta_full",)
+OUTPUT_DIR: "./output_light"
