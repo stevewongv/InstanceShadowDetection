@@ -1,0 +1,13 @@
+setup.py
+./common/maskApi.c
+pysobatools/SOAPeval.py
+pysobatools/__init__.py
+pysobatools/_mask.pyx
+pysobatools/cocoeval.py
+pysobatools/mask.py
+pysobatools/soba.py
+pysobatools.egg-info/PKG-INFO
+pysobatools.egg-info/SOURCES.txt
+pysobatools.egg-info/dependency_links.txt
+pysobatools.egg-info/requires.txt
+pysobatools.egg-info/top_level.txt
