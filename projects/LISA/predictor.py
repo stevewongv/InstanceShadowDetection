@@ -22,7 +22,7 @@ class VisualizationDemo(object):
             parallel (bool): whether to run the model in different processes from visualization.
                 Useful since the visualization logic can be slow.
         """
-        self.metadata = MetadataCatalog.get(cfg.DATASETS.TEST[0])
+        self.metadata = MetadataCatalog.get('soba_cast_shadow_val_full')
         self.cpu_device = torch.device("cpu")
         self.instance_mode = instance_mode
 
@@ -58,11 +58,17 @@ class VisualizationDemo(object):
                 vis_output = visualizer.draw_sem_seg(
                     predictions["sem_seg"].argmax(dim=0).to(self.cpu_device)
                 )
-            if "instances" in predictions[1][0]:
-                instances = predictions[1][0]["instances"].to(self.cpu_device)
-                if instances.pred_masks[0].shape[2] ==1:
-                    instances.pred_masks = [i[:,:,0] for i in instances.pred_masks]
-                print(instances.pred_masks[0].shape)
+           # if "instances" in predictions[1][0]:
+            #    instances = predictions[1][0]["instances"].to(self.cpu_device)
+             #   if instances.pred_masks[0].shape[2] == 1:
+              #      instances.pred_masks = [mk[:,:,0] for mk in instances.pred_masks]
+               # vis_asso = visualizer.draw_instance_predictions(instances,True,'right')
+            if "instances" in predictions[0][0]:
+                
+                instances = predictions[0][0]["instances"].to(self.cpu_device)
+                instances.pred_masks = instances.pred_masks.numpy()
+                #instances.pred_boxes = instances.pred_boxes
+               # print(instances.pred_masks.shape)
                 vis_output = visualizer.draw_instance_predictions(predictions=instances)
 
         return predictions, vis_output
