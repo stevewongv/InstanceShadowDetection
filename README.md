@@ -6,7 +6,7 @@
 [[`arXiv`]()] [[`BibTeX`](#CitingLISA)]
 
 
-![-c](projects/LISA/web-shadow0573.jpg)
+![-c](demo/demo.jpeg)
 
 Instance shadow detection aims to find shadow instances paired with object instances. We present a dataset, a deep framework, and an evaluation metric to approach this new task.
 
