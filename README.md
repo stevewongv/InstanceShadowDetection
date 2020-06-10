@@ -30,7 +30,7 @@ $ cd InstanceShadowDetection/docker
 $ docker build --tag="instanceshadow" ./Dockerfile .
 ```
 
-## Model and Dataset
+## Model, dataset and our results
 
 Please dowload from [Google Drive](https://drive.google.com/drive/folders/1MKxyq3R6AUeyLai9i9XWzG2C_n5f0ppP). Put the model in `projects/LISA/output_light/`. 
 
