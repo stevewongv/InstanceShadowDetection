@@ -51,6 +51,7 @@ $ python train_net.py --num-gpus 2 --config-file ./config/LISA_101_FPN_3x.yaml
 
 ```bash
 $ python train_net.py --num-gpus 2 --config-file ./config/LISA_101_FPN_3x.yaml --eval-only --resume
+$ python SOAP.py
 ```
 
 ## Visualize
