@@ -1,5 +1,5 @@
 import numpy as np
-import pysobatools.SOAPeval as SOAPEval
+import pysobatools.sobaeval as SOAPEval
 import pysobatools.cocoeval as Eval
 from pysobatools.soba import SOBA
 import json
