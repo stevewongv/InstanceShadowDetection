@@ -35,12 +35,8 @@ WORKDIR /home/ISD/
 # Install Instance Shadow Detection
 RUN git clone https://github.com/stevewongv/InstanceShadowDetection.git
 
-RUN cd InstanceShadowDetection
+RUN cd InstanceShadowDetection && python setup.py install
 
-RUN python setup.py install
-
-RUN cd PythonAPI
-
-RUN python setup.py install
+RUN cd InstanceShadowDetection/PythonAPI && python setup.py install
 
 
