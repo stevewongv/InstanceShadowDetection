@@ -24,11 +24,16 @@ $ python setup.py install
 ```
 
 ## Docker
+
 ```bash
 $ cd InstanceShadowDetection/docker
 
-$ docker build --tag="instanceshadow" ./Dockerfile .
+$ docker build --network=host --tag="instanceshadow" -f ./Dockerfile .
+
+$ docker run --gpus all -it --ipc=host --name=instanceshadow --network=host -v /YOURPATH:/data instanceshadow:latest
 ```
+
+**(Nvidia-docker)[https://github.com/NVIDIA/nvidia-docker] is needed.**
 
 ## Model, dataset and our results
 
