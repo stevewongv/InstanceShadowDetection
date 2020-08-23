@@ -13,7 +13,7 @@ RUN wget https://bootstrap.pypa.io/get-pip.py && \
 
 # install dependencies
 # See https://pytorch.org/ for other options if you use a different version of CUDA
-RUN pip install  tensorboard cython jupyter scikit-image numpy==1.15
+RUN pip install  tensorboard cython jupyter scikit-image numpy==1.19.1
 RUN pip install torch==1.3.0+cu100 torchvision==0.4.1+cu100 -f https://download.pytorch.org/whl/torch_stable.html
 #RUN pip install --user 'git+https://github.com/cocodataset/cocoapi.git#subdirectory=PythonAPI'
 
