@@ -89,7 +89,7 @@ class LISAROIHeads(StandardROIHeads):
             
             pred_instances = self._forward_box(features_list, proposals)
             pred_instances = self.forward_with_given_boxes(features, pred_instances)
-            pred_associations = self._forward_association_box(features_list,proposals)
+            pred_associations = self._forward_association_box(features_list,association_proposals)
             # During inference cascaded prediction is used: the mask and keypoints heads are only
             # applied to the top scoring box detections.
             
