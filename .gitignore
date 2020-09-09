@@ -1,4 +1,4 @@
 /docker/clipboard.txt
 /projects/LISA/.ipynb_checkpoints/*
 !/projects/LISA/.SOAP.ipynb.icloud
-
+*/.DS_Store 
