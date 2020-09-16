@@ -10,6 +10,19 @@
 
 Instance shadow detection aims to find shadow instances paired with object instances. We present a dataset, a deep framework, and an evaluation metric to approach this new task. This repo is implemented on [Detectron2](https://github.com/facebookresearch/detectron2).
 
+## Dependences
+
+torch==1.3.0+cu100
+torchvision==0.4.1+cu100
+tensorboard
+cython
+jupyter
+scikit-image
+numpy
+opencv-python
+pycocotools
+
+
 
 
 ## Installation 
