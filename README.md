@@ -12,15 +12,15 @@ Instance shadow detection aims to find shadow instances paired with object insta
 
 ## Dependences
 
-torch==1.3.0+cu100
-torchvision==0.4.1+cu100
-tensorboard
-cython
-jupyter
-scikit-image
-numpy
-opencv-python
-pycocotools
+* torch==1.3.0+cu100
+* torchvision==0.4.1+cu100
+* tensorboard
+* cython
+* jupyter
+* scikit-image
+* numpy
+* opencv-python
+* pycocotools
 
 
 
