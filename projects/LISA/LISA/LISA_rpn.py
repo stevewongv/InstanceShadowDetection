@@ -57,9 +57,6 @@ class LISARPNHead(StandardRPNHead):
         for i,x in enumerate(features):
 
             t = F.relu(self.conv(x))
-
-            # if self.shadow_object_part == False:
-                # pre_features.append(t)
             
             pred_objectness_logits.append(self.objectness_logits(t))
             pred_anchor_deltas.append(self.anchor_deltas(t))

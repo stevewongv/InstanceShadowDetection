@@ -29,7 +29,7 @@ class LISARCNN(GeneralizedRCNN):
             return self.inference(batched_inputs)
 
         images = self.preprocess_image(batched_inputs)
-        # print(batched_inputs[1])
+
         if "instances" in batched_inputs[0]:
             gt_instances = [x["instances"].to(self.device) for x in batched_inputs]
         if "associations" in batched_inputs[0]:
@@ -48,9 +48,6 @@ class LISARCNN(GeneralizedRCNN):
             association_proposals, association_losses, pre_features, pre_proposals = self.association_proposal_generator(images, features, gt_associations)
         
         if self.proposal_generator:
-            # concat_features = {}
-            # for pre_feature, (k,v) in zip(pre_features,features.items()):
-            #     concat_features[k] = torch.cat([v,pre_feature],1)
             proposals, proposal_losses = self.proposal_generator(images,features,gt_instances,pre_proposals)
 
         _, detector_losses = self.roi_heads(images, features, association_proposals, proposals, gt_associations, gt_instances)
@@ -90,7 +87,6 @@ class LISARCNN(GeneralizedRCNN):
             ):
                 height = input_per_image.get("height", image_size[0])
                 width = input_per_image.get("width", image_size[1])
-                # print(results_per_image)
                 r = detector_postprocess(results_per_image, height, width)
                 processed_results.append({"instances": r.to(torch.device('cpu'))})
 

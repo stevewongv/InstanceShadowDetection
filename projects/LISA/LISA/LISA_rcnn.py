@@ -8,7 +8,7 @@ from detectron2.structures import Boxes, Instances, RotatedBoxes, pairwise_iou, 
 from detectron2.utils.events import get_event_storage
 from detectron2.utils.registry import Registry
 
-# from detectron2.modeling.matcher import Matcher
+from detectron2.modeling.matcher import Matcher
 from detectron2.modeling.poolers import ROIPooler
 from detectron2.modeling import ROI_HEADS_REGISTRY, StandardROIHeads
 from detectron2.modeling.roi_heads.roi_heads import Res5ROIHeads
@@ -97,22 +97,10 @@ class LISAROIHeads(StandardROIHeads):
             return pred_instances, pred_associations ,{}
     
     
-    
-    # def forward_with_given_association_boxes(self,feature, instances):
-
-    #     assert not self.training
-    #     assert instances[0].has("pred_boxes") and instances[0].has("pred_classes")
-    #     features = [feature[f] for f in self.in_features]
-
-    #     # instances = self._forward_mask(features, instances)
-    #     instances = self._forward_keypoint(features, instances)
-    #     return instances
-
 
 
     def _forward_association_box(self, features, association_proposals):
         box_features = self.box_pooler(features, [x.proposal_boxes for x in association_proposals])
-        # light_features = self.box_pooler(s)
         light_features = self.light_direction_head(box_features)
         box_features = self.association_box_head(box_features)
         pred_light_direction = self.light_direction_predictor(light_features)
@@ -197,7 +185,6 @@ class LISAROIHeads(StandardROIHeads):
             # Get the corresponding GT for each proposal
             if has_gt:
                 gt_classes = targets_per_image.gt_classes[matched_idxs]
-                # print(gt_classes)
                 # Label unmatched proposals (0 label from matcher) as background (label=num_classes)
                 
                 gt_classes[proposals_labels == 0] = num_classes
