@@ -8,7 +8,7 @@ from detectron2.structures import Boxes, Instances, RotatedBoxes, pairwise_iou, 
 from detectron2.utils.events import get_event_storage
 from detectron2.utils.registry import Registry
 
-from detectron2.modeling.matcher import Matcher
+# from detectron2.modeling.matcher import Matcher
 from detectron2.modeling.poolers import ROIPooler
 from detectron2.modeling import ROI_HEADS_REGISTRY, StandardROIHeads
 from detectron2.modeling.roi_heads.roi_heads import Res5ROIHeads
