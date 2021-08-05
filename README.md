@@ -5,6 +5,7 @@
 
 [[`openaccess`](http://openaccess.thecvf.com/content_CVPR_2020/papers/Wang_Instance_Shadow_Detection_CVPR_2020_paper.pdf)][[`arXiv`](https://arxiv.org/abs/1911.07034)] [[`BibTeX`](#CitingLISA)]
 
+**News** Our new work on instance shadow detection was accepted in CVPR 2021 as Oral presentation, check [here](https://github.com/stevewongv/SSIS)!
 
 ![-c](demo/demo.jpeg)
 
