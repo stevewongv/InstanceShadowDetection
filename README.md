@@ -5,13 +5,15 @@
 
 [[`openaccess`](http://openaccess.thecvf.com/content_CVPR_2020/papers/Wang_Instance_Shadow_Detection_CVPR_2020_paper.pdf)][[`arXiv`](https://arxiv.org/abs/1911.07034)] [[`BibTeX`](#CitingLISA)]
 
+**News: Our new work on instance shadow detection was accepted in CVPR 2021 as Oral presentation, check [here](https://github.com/stevewongv/SSIS)!**
+
+
 
 
 ![-c](demo/demo.jpeg)
 
 Instance shadow detection aims to find shadow instances paired with object instances. We present a dataset, a deep framework, and an evaluation metric to approach this new task. This repo is implemented on [Detectron2](https://github.com/facebookresearch/detectron2).
 
-**News:** Our new work on instance shadow detection was accepted in CVPR 2021 as Oral presentation, check [here](https://github.com/stevewongv/SSIS)!
 
 ## Dependences
 
