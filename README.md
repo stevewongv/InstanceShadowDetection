@@ -83,7 +83,7 @@ $ python SOAP.py
 python visualize_json_results.py --ins_input ./output_light/inference/soba_instances_results.json --ass_input ./output_light/inference/soba_association_results.json --output ./output_light/results --dataset soba_cast_shadow_val_full
 ```
 ## <a name="CitingLISA"></a> Citation
-If you use LISA, SOBA, or SOAP, please use the following BibTeX entry.
+If you use LISA, SISS, SOBA, or SOAP, please use the following BibTeX entry.
 
 ```
 @InProceedings{Wang_2020_CVPR,
@@ -92,5 +92,14 @@ title = {Instance Shadow Detection},
 booktitle = {IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
 month = {June},
 year = {2020}
+}
+
+@InProceedings{Wang_2021_CVPR,
+author    = {Wang, Tianyu and Hu, Xiaowei and Fu, Chi-Wing and Heng, Pheng-Ann},
+title     = {Single-Stage Instance Shadow Detection With Bidirectional Relation Learning},
+booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+month     = {June},
+Year      = {2021},
+pages     = {1-11}
 }
 ```
