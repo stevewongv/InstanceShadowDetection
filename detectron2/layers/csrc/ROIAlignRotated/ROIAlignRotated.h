@@ -1,6 +1,6 @@
-// Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
+// Copyright (c) Facebook, Inc. and its affiliates.
 #pragma once
-#include <torch/extension.h>
+#include <torch/types.h>
 
 namespace detectron2 {
 
@@ -24,7 +24,7 @@ at::Tensor ROIAlignRotated_backward_cpu(
     const int width,
     const int sampling_ratio);
 
-#ifdef WITH_CUDA
+#if defined(WITH_CUDA) || defined(WITH_HIP)
 at::Tensor ROIAlignRotated_forward_cuda(
     const at::Tensor& input,
     const at::Tensor& rois,
@@ -50,12 +50,12 @@ at::Tensor ROIAlignRotated_backward_cuda(
 inline at::Tensor ROIAlignRotated_forward(
     const at::Tensor& input,
     const at::Tensor& rois,
-    const float spatial_scale,
-    const int pooled_height,
-    const int pooled_width,
-    const int sampling_ratio) {
-  if (input.type().is_cuda()) {
-#ifdef WITH_CUDA
+    const double spatial_scale,
+    const int64_t pooled_height,
+    const int64_t pooled_width,
+    const int64_t sampling_ratio) {
+  if (input.is_cuda()) {
+#if defined(WITH_CUDA) || defined(WITH_HIP)
     return ROIAlignRotated_forward_cuda(
         input,
         rois,
@@ -64,7 +64,7 @@ inline at::Tensor ROIAlignRotated_forward(
         pooled_width,
         sampling_ratio);
 #else
-    AT_ERROR("Not compiled with GPU support");
+    AT_ERROR("Detectron2 is not compiled with GPU support!");
 #endif
   }
   return ROIAlignRotated_forward_cpu(
@@ -74,16 +74,16 @@ inline at::Tensor ROIAlignRotated_forward(
 inline at::Tensor ROIAlignRotated_backward(
     const at::Tensor& grad,
     const at::Tensor& rois,
-    const float spatial_scale,
-    const int pooled_height,
-    const int pooled_width,
-    const int batch_size,
-    const int channels,
-    const int height,
-    const int width,
-    const int sampling_ratio) {
-  if (grad.type().is_cuda()) {
-#ifdef WITH_CUDA
+    const double spatial_scale,
+    const int64_t pooled_height,
+    const int64_t pooled_width,
+    const int64_t batch_size,
+    const int64_t channels,
+    const int64_t height,
+    const int64_t width,
+    const int64_t sampling_ratio) {
+  if (grad.is_cuda()) {
+#if defined(WITH_CUDA) || defined(WITH_HIP)
     return ROIAlignRotated_backward_cuda(
         grad,
         rois,
@@ -96,7 +96,7 @@ inline at::Tensor ROIAlignRotated_backward(
         width,
         sampling_ratio);
 #else
-    AT_ERROR("Not compiled with GPU support");
+    AT_ERROR("Detectron2 is not compiled with GPU support!");
 #endif
   }
   return ROIAlignRotated_backward_cpu(

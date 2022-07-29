@@ -1,13 +1,22 @@
-# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
+# Copyright (c) Facebook, Inc. and its affiliates.
 import copy
+import itertools
 import numpy as np
 from typing import Any, Iterator, List, Union
-import pysobatools.mask as mask_utils
+import pycocotools.mask as mask_util
 import torch
+from torch import device
 
 from detectron2.layers.roi_align import ROIAlign
+from detectron2.utils.memory import retry_if_cuda_oom
 
 from .boxes import Boxes
+
+
+def polygon_area(x, y):
+    # Using the shoelace formula
+    # https://stackoverflow.com/questions/24467972/calculate-area-of-polygon-given-x-y-coordinates
+    return 0.5 * np.abs(np.dot(x, np.roll(y, 1)) - np.dot(y, np.roll(x, 1)))
 
 
 def polygons_to_bitmask(polygons: List[np.ndarray], height: int, width: int) -> np.ndarray:
@@ -19,10 +28,12 @@ def polygons_to_bitmask(polygons: List[np.ndarray], height: int, width: int) -> 
     Returns:
         ndarray: a bool mask of shape (height, width)
     """
-    assert len(polygons) > 0, "COCOAPI does not support empty polygons"
-    rles = mask_utils.frPyObjects(polygons, height, width)
-    rle = mask_utils.merge(rles)
-    return mask_utils.decode(rle).astype(np.bool)
+    if len(polygons) == 0:
+        # COCOAPI does not support empty polygons
+        return np.zeros((height, width)).astype(np.bool)
+    rles = mask_util.frPyObjects(polygons, height, width)
+    rle = mask_util.merge(rles)
+    return mask_util.decode(rle).astype(np.bool)
 
 
 def rasterize_polygons_within_box(
@@ -56,6 +67,7 @@ def rasterize_polygons_within_box(
         p[1::2] = p[1::2] - box[1]
 
     # 2. Rescale the polygons to the new box size
+    # max() to avoid division by small number
     ratio_h = mask_size / max(h, 0.1)
     ratio_w = mask_size / max(w, 0.1)
 
@@ -87,15 +99,23 @@ class BitMasks:
         Args:
             tensor: bool Tensor of N,H,W, representing N instances in the image.
         """
-        device = tensor.device if isinstance(tensor, torch.Tensor) else torch.device("cpu")
-        tensor = torch.as_tensor(tensor, dtype=torch.bool, device=device)
+        if isinstance(tensor, torch.Tensor):
+            tensor = tensor.to(torch.bool)
+        else:
+            tensor = torch.as_tensor(tensor, dtype=torch.bool, device=torch.device("cpu"))
         assert tensor.dim() == 3, tensor.size()
         self.image_size = tensor.shape[1:]
         self.tensor = tensor
 
-    def to(self, device: str) -> "BitMasks":
-        return BitMasks(self.tensor.to(device))
+    @torch.jit.unused
+    def to(self, *args: Any, **kwargs: Any) -> "BitMasks":
+        return BitMasks(self.tensor.to(*args, **kwargs))
 
+    @property
+    def device(self) -> torch.device:
+        return self.tensor.device
+
+    @torch.jit.unused
     def __getitem__(self, item: Union[int, slice, torch.BoolTensor]) -> "BitMasks":
         """
         Returns:
@@ -112,16 +132,18 @@ class BitMasks:
         subject to Pytorch's indexing semantics.
         """
         if isinstance(item, int):
-            return BitMasks(self.tensor[item].view(1, -1))
+            return BitMasks(self.tensor[item].unsqueeze(0))
         m = self.tensor[item]
         assert m.dim() == 3, "Indexing on BitMasks with {} returns a tensor with shape {}!".format(
             item, m.shape
         )
         return BitMasks(m)
 
+    @torch.jit.unused
     def __iter__(self) -> torch.Tensor:
         yield from self.tensor
 
+    @torch.jit.unused
     def __repr__(self) -> str:
         s = self.__class__.__name__ + "("
         s += "num_instances={})".format(len(self.tensor))
@@ -152,7 +174,19 @@ class BitMasks:
         if isinstance(polygon_masks, PolygonMasks):
             polygon_masks = polygon_masks.polygons
         masks = [polygons_to_bitmask(p, height, width) for p in polygon_masks]
-        return BitMasks(torch.stack([torch.from_numpy(x) for x in masks]))
+        if len(masks):
+            return BitMasks(torch.stack([torch.from_numpy(x) for x in masks]))
+        else:
+            return BitMasks(torch.empty(0, height, width, dtype=torch.bool))
+
+    @staticmethod
+    def from_roi_masks(roi_masks: "ROIMasks", height: int, width: int) -> "BitMasks":
+        """
+        Args:
+            roi_masks:
+            height, width (int):
+        """
+        return roi_masks.to_bitmasks(height, width)
 
     def crop_and_resize(self, boxes: torch.Tensor, mask_size: int) -> torch.Tensor:
         """
@@ -187,9 +221,41 @@ class BitMasks:
         output = output >= 0.5
         return output
 
-    def get_bounding_boxes(self) -> None:
-        # not needed now
-        raise NotImplementedError
+    def get_bounding_boxes(self) -> Boxes:
+        """
+        Returns:
+            Boxes: tight bounding boxes around bitmasks.
+            If a mask is empty, it's bounding box will be all zero.
+        """
+        boxes = torch.zeros(self.tensor.shape[0], 4, dtype=torch.float32)
+        x_any = torch.any(self.tensor, dim=1)
+        y_any = torch.any(self.tensor, dim=2)
+        for idx in range(self.tensor.shape[0]):
+            x = torch.where(x_any[idx, :])[0]
+            y = torch.where(y_any[idx, :])[0]
+            if len(x) > 0 and len(y) > 0:
+                boxes[idx, :] = torch.as_tensor(
+                    [x[0], y[0], x[-1] + 1, y[-1] + 1], dtype=torch.float32
+                )
+        return Boxes(boxes)
+
+    @staticmethod
+    def cat(bitmasks_list: List["BitMasks"]) -> "BitMasks":
+        """
+        Concatenates a list of BitMasks into a single BitMasks
+
+        Arguments:
+            bitmasks_list (list[BitMasks])
+
+        Returns:
+            BitMasks: the concatenated BitMasks
+        """
+        assert isinstance(bitmasks_list, (list, tuple))
+        assert len(bitmasks_list) > 0
+        assert all(isinstance(bitmask, BitMasks) for bitmask in bitmasks_list)
+
+        cat_bitmasks = type(bitmasks_list[0])(torch.cat([bm.tensor for bm in bitmasks_list], dim=0))
+        return cat_bitmasks
 
 
 class PolygonMasks:
@@ -203,16 +269,20 @@ class PolygonMasks:
     def __init__(self, polygons: List[List[Union[torch.Tensor, np.ndarray]]]):
         """
         Arguments:
-            polygons (list[list[Tensor[float]]]): The first
+            polygons (list[list[np.ndarray]]): The first
                 level of the list correspond to individual instances,
                 the second level to all the polygons that compose the
                 instance, and the third level to the polygon coordinates.
-                The third level Tensor should have the format of
-                torch.Tensor([x0, y0, x1, y1, ..., xn, yn]) (n >= 3).
+                The third level array should have the format of
+                [x0, y0, x1, y1, ..., xn, yn] (n >= 3).
         """
-        assert isinstance(polygons, list)
+        if not isinstance(polygons, list):
+            raise ValueError(
+                "Cannot create PolygonMasks: Expect a list of list of polygons per image. "
+                "Got '{}' instead.".format(type(polygons))
+            )
 
-        def _make_array(t: Union[torch.Tensor, np.ndarray]) -> torch.Tensor:
+        def _make_array(t: Union[torch.Tensor, np.ndarray]) -> np.ndarray:
             # Use float64 for higher precision, because why not?
             # Always put polygons on CPU (self.to is a no-op) since they
             # are supposed to be small tensors.
@@ -223,20 +293,29 @@ class PolygonMasks:
 
         def process_polygons(
             polygons_per_instance: List[Union[torch.Tensor, np.ndarray]]
-        ) -> List[torch.Tensor]:
-            assert isinstance(polygons_per_instance, list), type(polygons_per_instance)
-            # transform the polygon to a tensor
+        ) -> List[np.ndarray]:
+            if not isinstance(polygons_per_instance, list):
+                raise ValueError(
+                    "Cannot create polygons: Expect a list of polygons per instance. "
+                    "Got '{}' instead.".format(type(polygons_per_instance))
+                )
+            # transform each polygon to a numpy array
             polygons_per_instance = [_make_array(p) for p in polygons_per_instance]
             for polygon in polygons_per_instance:
-                assert len(polygon) % 2 == 0 and len(polygon) >= 6
+                if len(polygon) % 2 != 0 or len(polygon) < 6:
+                    raise ValueError(f"Cannot create a polygon from {len(polygon)} coordinates.")
             return polygons_per_instance
 
-        self.polygons: List[List[torch.Tensor]] = [
+        self.polygons: List[List[np.ndarray]] = [
             process_polygons(polygons_per_instance) for polygons_per_instance in polygons
         ]
 
     def to(self, *args: Any, **kwargs: Any) -> "PolygonMasks":
         return self
+
+    @property
+    def device(self) -> torch.device:
+        return torch.device("cpu")
 
     def get_bounding_boxes(self) -> Boxes:
         """
@@ -264,7 +343,7 @@ class PolygonMasks:
                 a BoolTensor which represents whether each mask is empty (False) or not (True).
         """
         keep = [1 if len(polygon) > 0 else 0 for polygon in self.polygons]
-        return torch.as_tensor(keep, dtype=torch.bool)
+        return torch.from_numpy(np.asarray(keep, dtype=np.bool))
 
     def __getitem__(self, item: Union[int, slice, List[int], torch.BoolTensor]) -> "PolygonMasks":
         """
@@ -296,7 +375,7 @@ class PolygonMasks:
             selected_polygons = [self.polygons[i] for i in item]
         return PolygonMasks(selected_polygons)
 
-    def __iter__(self) -> Iterator[List[torch.Tensor]]:
+    def __iter__(self) -> Iterator[List[np.ndarray]]:
         """
         Yields:
             list[ndarray]: the polygons for one instance.
@@ -343,3 +422,113 @@ class PolygonMasks:
         if len(results) == 0:
             return torch.empty(0, mask_size, mask_size, dtype=torch.bool, device=device)
         return torch.stack(results, dim=0).to(device=device)
+
+    def area(self):
+        """
+        Computes area of the mask.
+        Only works with Polygons, using the shoelace formula:
+        https://stackoverflow.com/questions/24467972/calculate-area-of-polygon-given-x-y-coordinates
+
+        Returns:
+            Tensor: a vector, area for each instance
+        """
+
+        area = []
+        for polygons_per_instance in self.polygons:
+            area_per_instance = 0
+            for p in polygons_per_instance:
+                area_per_instance += polygon_area(p[0::2], p[1::2])
+            area.append(area_per_instance)
+
+        return torch.tensor(area)
+
+    @staticmethod
+    def cat(polymasks_list: List["PolygonMasks"]) -> "PolygonMasks":
+        """
+        Concatenates a list of PolygonMasks into a single PolygonMasks
+
+        Arguments:
+            polymasks_list (list[PolygonMasks])
+
+        Returns:
+            PolygonMasks: the concatenated PolygonMasks
+        """
+        assert isinstance(polymasks_list, (list, tuple))
+        assert len(polymasks_list) > 0
+        assert all(isinstance(polymask, PolygonMasks) for polymask in polymasks_list)
+
+        cat_polymasks = type(polymasks_list[0])(
+            list(itertools.chain.from_iterable(pm.polygons for pm in polymasks_list))
+        )
+        return cat_polymasks
+
+
+class ROIMasks:
+    """
+    Represent masks by N smaller masks defined in some ROIs. Once ROI boxes are given,
+    full-image bitmask can be obtained by "pasting" the mask on the region defined
+    by the corresponding ROI box.
+    """
+
+    def __init__(self, tensor: torch.Tensor):
+        """
+        Args:
+            tensor: (N, M, M) mask tensor that defines the mask within each ROI.
+        """
+        if tensor.dim() != 3:
+            raise ValueError("ROIMasks must take a masks of 3 dimension.")
+        self.tensor = tensor
+
+    def to(self, device: torch.device) -> "ROIMasks":
+        return ROIMasks(self.tensor.to(device))
+
+    @property
+    def device(self) -> device:
+        return self.tensor.device
+
+    def __len__(self):
+        return self.tensor.shape[0]
+
+    def __getitem__(self, item) -> "ROIMasks":
+        """
+        Returns:
+            ROIMasks: Create a new :class:`ROIMasks` by indexing.
+
+        The following usage are allowed:
+
+        1. `new_masks = masks[2:10]`: return a slice of masks.
+        2. `new_masks = masks[vector]`, where vector is a torch.BoolTensor
+           with `length = len(masks)`. Nonzero elements in the vector will be selected.
+
+        Note that the returned object might share storage with this object,
+        subject to Pytorch's indexing semantics.
+        """
+        t = self.tensor[item]
+        if t.dim() != 3:
+            raise ValueError(
+                f"Indexing on ROIMasks with {item} returns a tensor with shape {t.shape}!"
+            )
+        return ROIMasks(t)
+
+    @torch.jit.unused
+    def __repr__(self) -> str:
+        s = self.__class__.__name__ + "("
+        s += "num_instances={})".format(len(self.tensor))
+        return s
+
+    @torch.jit.unused
+    def to_bitmasks(self, boxes: torch.Tensor, height, width, threshold=0.5):
+        """
+        Args: see documentation of :func:`paste_masks_in_image`.
+        """
+        from detectron2.layers.mask_ops import paste_masks_in_image, _paste_masks_tensor_shape
+
+        if torch.jit.is_tracing():
+            if isinstance(height, torch.Tensor):
+                paste_func = _paste_masks_tensor_shape
+            else:
+                paste_func = paste_masks_in_image
+        else:
+            paste_func = retry_if_cuda_oom(paste_masks_in_image)
+        bitmasks = paste_func(self.tensor, boxes.tensor, (height, width), threshold=threshold)
+        return BitMasks(bitmasks)

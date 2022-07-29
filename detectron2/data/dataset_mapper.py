@@ -133,11 +133,11 @@ class DatasetMapper:
                 if obj.get("iscrowd", 0) == 0
             ]
             instances = utils.annotations_to_instances(
-                annos, image_shape, mask_format=self.mask_format
+                annos, image_shape, mask_format="bitmask"
             )
 
             associations = utils.annotations_to_instances(
-                rela_annos, image_shape, mask_format=self.mask_format
+                rela_annos, image_shape, mask_format="bitmask"
             )
 
             # Create a tight bounding box from masks, useful when image is cropped

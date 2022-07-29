@@ -10,6 +10,7 @@ import numpy as np
 import torch
 from fvcore.common.file_io import PathManager
 from PIL import Image
+import pysobatools.mask as mask_util
 
 from detectron2.structures import (
     BitMasks,
@@ -152,8 +153,27 @@ def transform_instance_annotations(
     if "segmentation" in annotation:
         # each instance contains 1 or more polygons
         # print(annotation["segmentation"])
-        polygons = [np.asarray(p).reshape(-1, 2) for p in annotation["segmentation"]]
-        annotation["segmentation"] = [p.reshape(-1) for p in transforms.apply_polygons(polygons)]
+        # polygons = [np.asarray(p).reshape(-1, 2) for p in annotation["segmentation"]]
+        # annotation["segmentation"] = [p.reshape(-1) for p in transforms.apply_polygons(polygons)]
+        segm = annotation["segmentation"]
+        if isinstance(segm, list):
+            # polygons
+            polygons = [np.asarray(p).reshape(-1, 2) for p in segm]
+            annotation["segmentation"] = [
+                p.reshape(-1) for p in transforms.apply_polygons(polygons)
+            ]
+        elif isinstance(segm, dict):
+            # RLE
+            mask = mask_util.decode(segm)
+            mask = transforms.apply_segmentation(mask)
+            assert tuple(mask.shape[:2]) == image_size
+            annotation["segmentation"] = mask
+        else:
+            raise ValueError(
+                "Cannot transform segmentation of type '{}'!"
+                "Supported types are: polygons as list[list[float] or ndarray],"
+                " COCO-style RLE as a dict.".format(type(segm))
+            )
 
     if "keypoints" in annotation:
         keypoints = transform_keypoint_annotations(
@@ -235,7 +255,31 @@ def annotations_to_instances(annos, image_size, mask_format="polygon"):
             masks = PolygonMasks(polygons)
         else:
             assert mask_format == "bitmask", mask_format
-            masks = BitMasks.from_polygon_masks(polygons, *image_size)
+            masks = []
+            for segm in polygons:
+                if isinstance(segm, list):
+                    # polygon
+                    masks.append(BitMasks.from_polygon_masks(segm, *image_size))
+                elif isinstance(segm, dict):
+                    # COCO RLE
+                    masks.append(mask_util.decode(segm))
+                elif isinstance(segm, np.ndarray):
+                    assert segm.ndim == 2, "Expect segmentation of 2 dimensions, got {}.".format(
+                        segm.ndim
+                    )
+                    # mask array
+                    masks.append(segm)
+                else:
+                    raise ValueError(
+                        "Cannot convert segmentation of type '{}' to BitMasks!"
+                        "Supported types are: polygons as list[list[float] or ndarray],"
+                        " COCO-style RLE as a dict, or a binary segmentation mask "
+                        " in a 2D numpy array of shape HxW.".format(type(segm))
+                    )
+            # torch.from_numpy does not support array with negative stride.
+            masks = BitMasks(
+                torch.stack([torch.from_numpy(np.ascontiguousarray(x)) for x in masks])
+            )
         target.gt_masks = masks
 
     if len(annos) and "keypoints" in annos[0]:
@@ -291,7 +335,7 @@ def filter_empty_instances(instances, by_box=True, by_mask=True):
     if by_box:
         r.append(instances.gt_boxes.nonempty())
     if instances.has("gt_masks") and by_mask:
-        r.append(instances.gt_masks.nonempty())
+        r.append(instances.gt_masks.nonempty() & (instances.gt_masks.tensor.sum(1).sum(1) > 20.0))
 
     # TODO: can also filter visible keypoints
 

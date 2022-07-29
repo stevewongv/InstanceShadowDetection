@@ -1,10 +1,9 @@
-# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
+# Copyright (c) Facebook, Inc. and its affiliates.
+import torch
 from torch import nn
 from torch.autograd import Function
 from torch.autograd.function import once_differentiable
 from torch.nn.modules.utils import _pair
-
-from detectron2 import _C
 
 
 class _ROIAlignRotated(Function):
@@ -15,7 +14,7 @@ class _ROIAlignRotated(Function):
         ctx.spatial_scale = spatial_scale
         ctx.sampling_ratio = sampling_ratio
         ctx.input_shape = input.size()
-        output = _C.roi_align_rotated_forward(
+        output = torch.ops.detectron2.roi_align_rotated_forward(
             input, roi, spatial_scale, output_size[0], output_size[1], sampling_ratio
         )
         return output
@@ -23,12 +22,12 @@ class _ROIAlignRotated(Function):
     @staticmethod
     @once_differentiable
     def backward(ctx, grad_output):
-        rois, = ctx.saved_tensors
+        (rois,) = ctx.saved_tensors
         output_size = ctx.output_size
         spatial_scale = ctx.spatial_scale
         sampling_ratio = ctx.sampling_ratio
         bs, ch, h, w = ctx.input_shape
-        grad_input = _C.roi_align_rotated_backward(
+        grad_input = torch.ops.detectron2.roi_align_rotated_backward(
             grad_output,
             rois,
             spatial_scale,
@@ -75,9 +74,13 @@ class ROIAlignRotated(nn.Module):
                 The other 5 columns are (x_ctr, y_ctr, width, height, angle_degrees).
         """
         assert rois.dim() == 2 and rois.size(1) == 6
+        orig_dtype = input.dtype
+        if orig_dtype == torch.float16:
+            input = input.float()
+            rois = rois.float()
         return roi_align_rotated(
             input, rois, self.output_size, self.spatial_scale, self.sampling_ratio
-        )
+        ).to(dtype=orig_dtype)
 
     def __repr__(self):
         tmpstr = self.__class__.__name__ + "("
