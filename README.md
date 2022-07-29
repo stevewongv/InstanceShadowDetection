@@ -18,8 +18,8 @@ Instance shadow detection aims to find shadow instances paired with object insta
 ## Dependences
 
 * python>=3.6
-* torch==1.3.0+cu100
-* torchvision==0.4.1+cu100
+* torch (tested on 1.3.0+cu100 and 1.12.0+cu113)
+* torchvision (tested on 0.4.1+cu100 and 0.13.0+cu113)
 * tensorboard
 * cython
 * jupyter
@@ -56,7 +56,22 @@ $ docker run --gpus all -it --ipc=host --name=instanceshadow --network=host -v /
 
 ## Model, dataset and our results
 
-Please dowload from [Google Drive](https://drive.google.com/drive/folders/1MKxyq3R6AUeyLai9i9XWzG2C_n5f0ppP). Put the model in `projects/LISA/output_light/`. 
+Please download from [Google Drive](https://drive.google.com/drive/folders/1MKxyq3R6AUeyLai9i9XWzG2C_n5f0ppP). Put the model and dataset follow the directory layout below.
+
+    .
+    ├── ...
+    ├── dataset
+    │   ├── SOBA                # put dataset here
+    ├── InstanceShadowDetection # this repo
+    │   ├── projects
+    │   │   ├── LISA
+    │   │   │   ├── output_light
+    │   │   │   │   ├── last_checkpoint.pth
+    │   │   │   │   └── ...
+    │   │   │   └── ...
+    │   └── ...
+    └── ...
+
 
 ## Demo
 
