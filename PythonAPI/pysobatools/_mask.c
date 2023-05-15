@@ -10769,9 +10769,9 @@ static void __pyx_tp_dealloc_11pysobatools_5_mask_RLEs(PyObject *o) {
   {
     PyObject *etype, *eval, *etb;
     PyErr_Fetch(&etype, &eval, &etb);
-    ++Py_REFCNT(o);
+    Py_INCREF(o);
     __pyx_pw_11pysobatools_5_mask_4RLEs_3__dealloc__(o);
-    --Py_REFCNT(o);
+    Py_DECREF(o);
     PyErr_Restore(etype, eval, etb);
   }
   (*Py_TYPE(o)->tp_free)(o);
